@@ -6,7 +6,7 @@
 
 
 
-![Logo](docs/images/PrHaLogo)
+![alt text](https://github.com/HugoRibeiro-A88287-UM/PrHa/blob/main/docs/images/PrHaLogo.png?raw=true)
 
 
 ## Appendix
