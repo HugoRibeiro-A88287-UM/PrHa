@@ -21,7 +21,7 @@
 #define MAXPLATELENDIGITS 4
 #define PLATESSIZE 8
 #define PIGATELEN 8
-#define FIFOLEN 4
+#define FIFOLEN 16
 #define READWRITE_PERMISSION 0666
 #define SHM_PIGATEID_NAME "shm_PIgateID"
 

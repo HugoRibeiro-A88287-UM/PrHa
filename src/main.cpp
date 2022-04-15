@@ -58,7 +58,7 @@ enum mainProcessPrio {getPhotoPrio = 2, plateRecognitionPrio, textRecognitionPri
 //Threads Functions Prototypes
 void *t_getPhoto(void *arg);
 void *t_plateRecognition(void *arg);
-void *t_textRecognition(void *arg);
+//void *t_textRecognition(void *arg);
 
 /**
  * @brief Parent Process Signal Handler
@@ -85,8 +85,7 @@ static void signalHandler(int signo)
 
 int main(int count, char *args[])
 {
-    
-    
+
     //Create Fifos
     fifoPhoto_init(&imagesFifo,images,FIFOLEN);
     fifo16_init(&platesFifo,plates,FIFOLEN);
@@ -98,7 +97,8 @@ int main(int count, char *args[])
     pthread_attr_t thread_attr;
     struct sched_param thread_param;
 
-    pthread_t getPhoto_id, plateRecognition_id, textRecognition_id;
+    pthread_t getPhoto_id, plateRecognition_id;
+    //pthread_t textRecognition_id;
     pthread_t updatePlate_id, plateValidation_id;
 
     pthread_attr_init(&thread_attr);
@@ -111,12 +111,12 @@ int main(int count, char *args[])
     setupThread(plateRecognitionPrio, &thread_attr, &thread_param);
     checkFail(  pthread_create(&plateRecognition_id, &thread_attr, t_plateRecognition, NULL)  );
 
-    setupThread(textRecognitionPrio, &thread_attr, &thread_param);
-    checkFail(  pthread_create(&textRecognition_id, &thread_attr, t_textRecognition, NULL)  );
+//    setupThread(textRecognitionPrio, &thread_attr, &thread_param);
+//    checkFail(  pthread_create(&textRecognition_id, &thread_attr, t_textRecognition, NULL)  );
 
     pthread_join(getPhoto_id,NULL);
     pthread_join(plateRecognition_id,NULL);
-    pthread_join(textRecognition_id,NULL);
+//    pthread_join(textRecognition_id,NULL);
 
     pthread_exit(NULL);
 
@@ -128,123 +128,124 @@ int main(int count, char *args[])
 void *t_getPhoto(void *arg)
 {
 
-    Mat img;
-    string path = "/home/srhugo/Desktop/Projeto_Integrador/PrHa/ExamplePhotos/";
-    uint16_t counter = 0;
-    
-    printf("t_getPhoto Thread is Ready \n");
+   Mat img;
+   string path = "./ExamplePhotos/";
+   uint16_t counter = 0;
 
-    while (1)
-    {
-        sleep(5);
+   printf("t_getPhoto Thread is Ready \n");
 
-        if(counter > 13)
-        {
-            cout << "The End" << endl;
-            sleep(10);
-        }
+   while (1)
+   {
+       sleep(5);
+
+       if(counter > 13)
+       {
+           cout << "The End" << endl;
+           sleep(10);
+       }
 
 
-        if(get_FifoPhotoBuffSize(imagesFifo) == FIFOLEN)
-        {
-            /*Ignore, FIFO is FULL*/
-        }
-        else
-        {
-            
-            string image_path = path + to_string(counter) + ".jpg";
+       if(get_FifoPhotoBuffSize(imagesFifo) == FIFOLEN)
+       {
+           /*Ignore, FIFO is FULL*/
+       }
+       else
+       {
 
-            img = imread(image_path, IMREAD_COLOR);
+           string image_path = path + to_string(counter) + ".jpg";
 
-            //cout << "Pushing Image" << endl << img << endl;
-            
-            fifoPhoto_push(&imagesFifo,img);
+           img = imread(image_path, IMREAD_COLOR);
 
-            counter++;
-        }
+           //cout << "Pushing Image" << endl << img << endl;
 
-        //sleep(10);
+           fifoPhoto_push(&imagesFifo,img);
 
-    }
-    
+           counter++;
+       }
+
+       //sleep(10);
+
+   }
+
 
 }
 
 void *t_plateRecognition(void *arg)
 {
-    Mat receivedImage;
-    Mat plateImage;
+   Mat receivedImage;
+   Mat plateImage;
 
-    printf("t_plateRecognition is ready \n");
+   printf("t_plateRecognition is ready \n");
 
-    while (1)
-    {
-        
-        while(fifoPhoto_pop(&imagesFifo,&receivedImage) == -ENODATA )
-        { /*Waits for an image*/
-            sleep(1);
-        }
+   while (1)
+   {
+
+       while(fifoPhoto_pop(&imagesFifo,&receivedImage) == -ENODATA )
+       { /*Waits for an image*/
+           sleep(1);
+       }
 
 
-        if(get_Fifo16BuffSize(platesFifo) == FIFOLEN)
-        {
-            /*Ignore, FIFO is FULL*/
-        }
-        else
-        {
-            int detectPlateReturn = detectPlate(receivedImage, (platesFifo.writeIndex & (platesFifo.buff_len-1) ) );
+       if(get_Fifo16BuffSize(platesFifo) == FIFOLEN)
+       {
+           /*Ignore, FIFO is FULL*/
+       }
+       else
+       {
+           int detectPlateReturn = detectPlate(receivedImage, (platesFifo.writeIndex & (platesFifo.buff_len-1) ) );
 
-            if(detectPlateReturn == -EXIT_FAILURE)
-            {
-                /*ERROR, PLATE NOT FOUNDED*/
-            }
-            else
-            {   
-                //cout << "Pushing index photo" << endl;
+           if(detectPlateReturn == -EXIT_FAILURE)
+           {
+               /*ERROR, PLATE NOT FOUNDED*/
+           }
+           else
+           {
+               cout << "Plate Founded :D" << endl;
 
-                fifo16_push(&platesFifo,detectPlateReturn);
-            }
+               fifo16_push(&platesFifo,detectPlateReturn);
+           }
 
-        }
+       }
 
-        sleep(1);
-        
-    }
-    
+       sleep(1);
+
+   }
+
 
 }
 
-void *t_textRecognition(void *arg)
-{
-    int16_t receivedPlate;
-    uint16_t counter = 1;
+//void *t_textRecognition(void *arg)
+//{
+//    int16_t receivedPlate;
+//    uint16_t counter = 1;
+//
+//    printf("t_textRecognition is ready! \n");
+//
+//    while (1)
+//    {
+//
+//        while( (receivedPlate = fifo16_pop(&platesFifo) ) == -ENODATA )
+//        { /*Waits for an image*/
+//            sleep(1);
+//        }
+//
+//
+//
+//        string plateString = read_license_plates(receivedPlate);
+//
+//        if(plateString == "ERROR")
+//        {
+//            /*Plate String not founded*/
+//        }
+//        else
+//        {
+//            cout << to_string(counter++) + " Plate detected : " << plateString << endl;
+//        }
+//
+//        sleep(1);
+//
+//    }
+//
+//
+//}
 
-    printf("t_textRecognition is ready! \n");
-
-    while (1)
-    {
-        
-        while( (receivedPlate = fifo16_pop(&platesFifo) ) == -ENODATA )
-        { /*Waits for an image*/
-            sleep(1);
-        }
-
-
-            
-        string plateString = read_license_plates(receivedPlate);
-
-        if(plateString == "ERROR")
-        {
-            /*Plate String not founded*/
-        }
-        else
-        {
-            cout << to_string(counter++) + " Plate detected : " << plateString << endl;
-        }
-
-        sleep(1);
-        
-    }
-    
-
-}

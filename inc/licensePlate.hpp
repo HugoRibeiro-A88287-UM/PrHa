@@ -9,11 +9,11 @@
  * 
  */
 
-#include "/usr/include/opencv2/opencv.hpp"
-#include "/usr/include/opencv2/objdetect.hpp"
-#include "/usr/include/opencv2/highgui.hpp"
-#include "/usr/include/opencv2/imgproc.hpp"
-#include "/usr/include/opencv2/videoio.hpp"
+#include "/home/srhugo/Desktop/Projeto_Integrador/PI_zcu104_Linux/build/tmp/sysroots-components/cortexa72-cortexa53/opencv/usr/include/opencv4/opencv2/opencv.hpp"
+#include "/home/srhugo/Desktop/Projeto_Integrador/PI_zcu104_Linux/build/tmp/sysroots-components/cortexa72-cortexa53/opencv/usr/include/opencv4/opencv2/objdetect.hpp"
+#include "/home/srhugo/Desktop/Projeto_Integrador/PI_zcu104_Linux/build/tmp/sysroots-components/cortexa72-cortexa53/opencv/usr/include/opencv4/opencv2/highgui.hpp"
+#include "/home/srhugo/Desktop/Projeto_Integrador/PI_zcu104_Linux/build/tmp/sysroots-components/cortexa72-cortexa53/opencv/usr/include/opencv4/opencv2/imgproc.hpp"
+#include "/home/srhugo/Desktop/Projeto_Integrador/PI_zcu104_Linux/build/tmp/sysroots-components/cortexa72-cortexa53/opencv/usr/include/opencv4/opencv2/videoio.hpp"
 
 using namespace std;
 using namespace cv;

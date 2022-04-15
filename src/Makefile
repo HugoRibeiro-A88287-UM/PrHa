@@ -1,4 +1,5 @@
 CCRASP = arm-buildroot-linux-gnueabihf-gcc
+CCZCU104 = aarch64-linux-gnu-gcc
 CCLAPTOP = gcc
 CFLAGS = -g -I. 
 DEPS = -pthread -lrt  -lstdc++  -lopencv_core -lopencv_highgui -lopencv_imgproc -lopencv_objdetect -lopencv_imgcodecs

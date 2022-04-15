@@ -15,7 +15,8 @@
 
 
 #include <stdint.h>
-#include "/usr/include/opencv2/opencv.hpp"
+#include "/home/srhugo/Desktop/Projeto_Integrador/PI_zcu104_Linux/build/tmp/sysroots-components/cortexa72-cortexa53/opencv/usr/include/opencv4/opencv2/opencv.hpp"
+
 
 extern "C" {
 #include "utilits.h"
