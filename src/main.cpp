@@ -39,7 +39,10 @@ extern "C" {
 #include <algorithm>
 #include <iterator>
 #include <numeric>
+#include <ctime>
+#include <chrono>
 
+using namespace std::chrono;
 using namespace std;
 using namespace cv;
 
@@ -161,6 +164,7 @@ void *t_getPhoto(void *arg)
            fifoPhoto_push(&imagesFifo,img);
 
            counter++;
+
        }
 
        //sleep(10);
@@ -174,6 +178,7 @@ void *t_plateRecognition(void *arg)
 {
    Mat receivedImage;
    Mat plateImage;
+   //time_t start,stop;
 
    printf("t_plateRecognition is ready \n");
 
@@ -192,7 +197,15 @@ void *t_plateRecognition(void *arg)
        }
        else
        {
+    	   auto start = std::chrono::steady_clock::now();
+    	   //time(&start);
+
            int detectPlateReturn = detectPlate(receivedImage, (platesFifo.writeIndex & (platesFifo.buff_len-1) ) );
+
+
+           //time(&stop);
+           auto end = std::chrono::steady_clock::now();
+           auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
            if(detectPlateReturn == -EXIT_FAILURE)
            {
@@ -200,7 +213,8 @@ void *t_plateRecognition(void *arg)
            }
            else
            {
-               cout << "Plate Founded :D" << endl;
+               cout << "Plate Founded :D | Time -> "<< elapsed.count() << " microseconds "<< endl;
+
 
                fifo16_push(&platesFifo,detectPlateReturn);
            }
