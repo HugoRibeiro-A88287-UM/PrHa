@@ -31,6 +31,7 @@ extern "C" {
 }
 
 #include "../inc/licensePlate.hpp"
+#include "../inc/licensePlate_Ha.hpp"
 #include "../inc/fifo.hpp"
 
 #include <iostream>
@@ -53,6 +54,15 @@ fifoPhoto_t imagesFifo;
 //FIFO2 Variables
 uint16_t plates[FIFOLEN];
 fifo16_t platesFifo;
+
+//Hw Plates
+//FIFO1 Variables
+Mat imagesHw[FIFOLEN];
+fifoPhoto_t imagesFifoHw;
+
+//FIFO2 Variables
+uint16_t platesHw[FIFOLEN];
+fifo16_t platesFifoHw;
 
 
 //Thread Priority
@@ -93,7 +103,12 @@ int main(int count, char *args[])
     fifoPhoto_init(&imagesFifo,images,FIFOLEN);
     fifo16_init(&platesFifo,plates,FIFOLEN);
 
+    //Create Fifos
+    fifoPhoto_init(&imagesFifoHw,imagesHw,FIFOLEN);
+    fifo16_init(&platesFifoHw,platesHw,FIFOLEN);
+
     init_cascade();
+    initPlateDetect();
 
     /*Threads Creation*/
 
@@ -132,8 +147,11 @@ void *t_getPhoto(void *arg)
 {
 
    Mat img;
+   Mat imgHw;
    string path = "./ExamplePhotos/";
+   string pathHw = "./ExamplePhotos/";
    uint16_t counter = 0;
+   uint16_t counterHw = 0;
 
    printf("t_getPhoto Thread is Ready \n");
 
@@ -141,16 +159,12 @@ void *t_getPhoto(void *arg)
    {
        sleep(5);
 
-       if(counter > 13)
-       {
-           cout << "The End" << endl;
-           sleep(10);
-       }
 
-
-       if(get_FifoPhotoBuffSize(imagesFifo) == FIFOLEN)
+       if(( get_FifoPhotoBuffSize(imagesFifo) == FIFOLEN ) || counter > 14)
        {
            /*Ignore, FIFO is FULL*/
+           cout << "The End" << endl;
+           sleep(10);
        }
        else
        {
@@ -167,6 +181,25 @@ void *t_getPhoto(void *arg)
 
        }
 
+       if(( get_FifoPhotoBuffSize(imagesFifoHw) == FIFOLEN ) || (counterHw > 14))
+	  {
+		  /*Ignore, FIFO is FULL*/
+	  }
+	  else
+	  {
+
+		  string image_path_Hw = pathHw + to_string(counterHw) + ".jpg";
+
+		  imgHw = imread(image_path_Hw, IMREAD_COLOR);
+
+		  //cout << "Pushing Image" << endl << img << endl;
+
+		  fifoPhoto_push(&imagesFifoHw,imgHw);
+
+		  counterHw++;
+
+	  }
+
        //sleep(10);
 
    }
@@ -177,7 +210,10 @@ void *t_getPhoto(void *arg)
 void *t_plateRecognition(void *arg)
 {
    Mat receivedImage;
+   Mat receivedImageHw;
    Mat plateImage;
+   bool fifoReturn = true;
+   bool fifoReturnHw = true;
    //time_t start,stop;
 
    printf("t_plateRecognition is ready \n");
@@ -185,15 +221,18 @@ void *t_plateRecognition(void *arg)
    while (1)
    {
 
-       while(fifoPhoto_pop(&imagesFifo,&receivedImage) == -ENODATA )
+
+
+       while( ( fifoReturn = ( fifoPhoto_pop(&imagesFifo,&receivedImage) == -ENODATA ) )
+    		   || ( fifoReturnHw = ( fifoPhoto_pop(&imagesFifoHw,&receivedImageHw) == -ENODATA) ) )
        { /*Waits for an image*/
            sleep(1);
        }
 
 
-       if(get_Fifo16BuffSize(platesFifo) == FIFOLEN)
+       if( ( get_Fifo16BuffSize(platesFifo) == FIFOLEN ) || fifoReturn )
        {
-           /*Ignore, FIFO is FULL*/
+           /*Ignore, FIFO is FULL*/ cout << "SH";
        }
        else
        {
@@ -208,18 +247,41 @@ void *t_plateRecognition(void *arg)
            auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
            if(detectPlateReturn == -EXIT_FAILURE)
-           {
-               /*ERROR, PLATE NOT FOUNDED*/
-           }
-           else
-           {
-               cout << "Plate Founded :D | Time -> "<< elapsed.count() << " microseconds "<< endl;
+		  {
+			  /*ERROR, PLATE NOT FOUNDED*/
+		  }
+		  else
+		  {
+			  cout << "Plate Founded :D | Time -> "<< elapsed.count() << " microseconds "<< endl;
 
 
-               fifo16_push(&platesFifo,detectPlateReturn);
-           }
-
+			  fifo16_push(&platesFifo,detectPlateReturn);
+		  }
        }
+
+      if( ( get_Fifo16BuffSize(platesFifoHw) == FIFOLEN ) || fifoReturnHw )
+	  {
+		  /*Ignore, FIFO is FULL*/
+	  }
+	  else
+	  {
+
+    	   auto start = std::chrono::steady_clock::now();
+    	   //time(&start);
+
+    	   plateDetect(receivedImageHw, (platesFifoHw.writeIndex & (platesFifoHw.buff_len-1) ) );
+
+
+           //time(&stop);
+           auto end = std::chrono::steady_clock::now();
+           auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+
+           cout << " Hardware Accelatared | Time -> "<< elapsed.count() << " microseconds "<< endl;
+
+           fifo16_push(&platesFifoHw, (platesFifoHw.writeIndex & (platesFifoHw.buff_len-1) ));
+
+	  }
+
 
        sleep(1);
 
