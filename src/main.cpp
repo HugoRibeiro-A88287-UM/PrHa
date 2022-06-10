@@ -51,18 +51,10 @@ using namespace cv;
 Mat images[FIFOLEN];
 fifoPhoto_t imagesFifo;
 
-//FIFO2 Variables
-uint16_t plates[FIFOLEN];
-fifo16_t platesFifo;
-
 //Hw Plates
 //FIFO1 Variables
 Mat imagesHw[FIFOLEN];
 fifoPhoto_t imagesFifoHw;
-
-//FIFO2 Variables
-uint16_t platesHw[FIFOLEN];
-fifo16_t platesFifoHw;
 
 
 //Thread Priority
@@ -101,11 +93,9 @@ int main(int count, char *args[])
 
     //Create Fifos
     fifoPhoto_init(&imagesFifo,images,FIFOLEN);
-    fifo16_init(&platesFifo,plates,FIFOLEN);
 
     //Create Fifos
     fifoPhoto_init(&imagesFifoHw,imagesHw,FIFOLEN);
-    fifo16_init(&platesFifoHw,platesHw,FIFOLEN);
 
     init_cascade();
     initPlateDetect();
@@ -239,15 +229,6 @@ void *t_plateDetection(void *arg)
 
            int detectPlateReturn = detectPlate(receivedImage, (platesFifo.writeIndex & (platesFifo.buff_len-1) ) );
 
-           if(detectPlateReturn == -EXIT_FAILURE)
-		  {
-			  /*ERROR, PLATE NOT FOUNDED*/
-		  }
-		  else
-		  {
-
-			  fifo16_push(&platesFifo,detectPlateReturn);
-		  }
        }
 
       if( ( get_Fifo16BuffSize(platesFifoHw) == FIFOLEN ) || fifoReturnHw )
@@ -258,8 +239,6 @@ void *t_plateDetection(void *arg)
 	  {
 
     	   plateDetect(receivedImageHw, (platesFifoHw.writeIndex & (platesFifoHw.buff_len-1) ) );
-
-           fifo16_push(&platesFifoHw, (platesFifoHw.writeIndex & (platesFifoHw.buff_len-1) ));
 
 	  }
 
