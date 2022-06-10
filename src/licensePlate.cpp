@@ -55,8 +55,17 @@ int detectPlate( Mat frame, int len )
     equalizeHist( frame_gray, frame_gray );
 
     
-    /*finds all license plates on the image, stores coordinates in cv::Rect vector */
-    plate_cascade.detectMultiScale( frame_gray, license_plates );
+	auto start = std::chrono::steady_clock::now();
+
+	plate_cascade.detectMultiScale( frame_gray, license_plates );
+
+    auto end = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+
+
+    cout << "Software -> "<< elapsed.count() << " microseconds "<< endl;
+
+
     string plate;
     
     //If Plate not found

@@ -27,7 +27,15 @@ bool initPlateDetect(void){
 
 void plateDetect(Mat image, int length){
 
+	auto start = std::chrono::steady_clock::now();
+
 	vitis::ai::PlateDetectResult result = modelPointer->run(image);
+
+    auto end = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+
+
+    cout << "Hardware -> "<< elapsed.count() << " microseconds "<< endl<<endl;
 
 	auto rect = cv::Rect{
 	        (int)(result.box.x * image.cols), (int)(result.box.y * image.rows),

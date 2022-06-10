@@ -207,7 +207,7 @@ void *t_getPhoto(void *arg)
 
 }
 
-void *t_plateRecognition(void *arg)
+void *t_plateDetection(void *arg)
 {
    Mat receivedImage;
    Mat receivedImageHw;
@@ -216,7 +216,7 @@ void *t_plateRecognition(void *arg)
    bool fifoReturnHw = true;
    //time_t start,stop;
 
-   printf("t_plateRecognition is ready \n");
+   printf("t_plateDetection is ready \n");
 
    while (1)
    {
@@ -236,15 +236,8 @@ void *t_plateRecognition(void *arg)
        }
        else
        {
-    	   auto start = std::chrono::steady_clock::now();
-    	   //time(&start);
 
            int detectPlateReturn = detectPlate(receivedImage, (platesFifo.writeIndex & (platesFifo.buff_len-1) ) );
-
-
-           //time(&stop);
-           auto end = std::chrono::steady_clock::now();
-           auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
            if(detectPlateReturn == -EXIT_FAILURE)
 		  {
@@ -252,8 +245,6 @@ void *t_plateRecognition(void *arg)
 		  }
 		  else
 		  {
-			  cout << "Plate Founded :D | Time -> "<< elapsed.count() << " microseconds "<< endl;
-
 
 			  fifo16_push(&platesFifo,detectPlateReturn);
 		  }
@@ -266,17 +257,7 @@ void *t_plateRecognition(void *arg)
 	  else
 	  {
 
-    	   auto start = std::chrono::steady_clock::now();
-    	   //time(&start);
-
     	   plateDetect(receivedImageHw, (platesFifoHw.writeIndex & (platesFifoHw.buff_len-1) ) );
-
-
-           //time(&stop);
-           auto end = std::chrono::steady_clock::now();
-           auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-
-           cout << " Hardware Accelatared | Time -> "<< elapsed.count() << " microseconds "<< endl;
 
            fifo16_push(&platesFifoHw, (platesFifoHw.writeIndex & (platesFifoHw.buff_len-1) ));
 
