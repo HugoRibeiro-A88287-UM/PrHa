@@ -1,287 +1,114 @@
-/**
- * @file main.c
- * @author PrHa
- * @brief PrHa Main Code
- * @version 0.1
- * @date 2022-03-21
- * 
- * @copyright Copyright (c) 2022
- * 
- */
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <pthread.h>
-#include <sched.h>
-#include <errno.h>
-#include <sys/mman.h>
-#include <sys/shm.h>
-#include <sys/stat.h> /* For mode constants */
-#include <linux/types.h>
-#include <signal.h>
-#include <sys/time.h>
-#include <string.h>
-#include <stdbool.h>
-#include <fcntl.h> /* For O_* constants */  
-#include <stdint.h>
-
-extern "C" {
-#include"../inc/utilits.h"
-
-}
-
-#include "../inc/licensePlate.hpp"
-#include "../inc/licensePlate_Ha.hpp"
-#include "../inc/fifo.hpp"
-
 #include <iostream>
 #include <iterator>
 #include <vector>
 #include <algorithm>
-#include <iterator>
 #include <numeric>
 #include <ctime>
 #include <chrono>
 
+#include <memory>
+#include <opencv2/core.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/opencv.hpp>
+
+#include "../inc/platerecog.hpp"
+#include <vitis/ai/platenum.hpp>
+#include <vitis/ai/platedetect.hpp>
+#include <vitis/ai/demo.hpp>
+
 using namespace std::chrono;
 using namespace std;
 using namespace cv;
-
-//FIFO1 Variables
-Mat images[FIFOLEN];
-fifoPhoto_t imagesFifo;
-
-//Hw Plates
-//FIFO1 Variables
-Mat imagesHw[FIFOLEN];
-fifoPhoto_t imagesFifoHw;
+using namespace vitis::ai;
 
 
-//Thread Priority
-enum mainProcessPrio {getPhotoPrio = 2, plateRecognitionPrio, textRecognitionPrio};
+cv::Mat process_result(cv::Mat &m1, const vitis::ai::PlateRecogResult &result,
+                       bool is_jpeg) {
 
-//Threads Functions Prototypes
-void *t_getPhoto(void *arg);
-void *t_plateRecognition(void *arg);
-//void *t_textRecognition(void *arg);
+		if( result.box.score > 0.9){
+			  cout << "Plate Color: " << result.plate_color << endl           //
+				   << "Plate Number: " << result.plate_number << endl         //
+			  //<< "Time: "<< elapsed.count() << " microseconds "<< endl		   //
 
-/**
- * @brief Parent Process Signal Handler
- * 
- * @param signo Received Signal
- */
-static void signalHandler(int signo)
-{		
-    switch (signo)
-    {
-        case SIGINT:
-        case SIGTERM:
-            
-            exit(1);        
-            break;
+			  << endl;
+		}
 
-        default:
-            break;
-    }
+  cv::Mat image;
+  cv::resize(m1, image, cv::Size{result.width, result.height});
 
-    return;
+  auto rect = cv::Rect{(int)(result.box.x * image.cols),
+                       (int)(result.box.y * image.rows),
+                       (int)(result.box.width * image.cols),
+                       (int)(result.box.height * image.rows)};
+  cv::putText(image, result.plate_number, cv::Point(result.box.x*image.cols , result.box.y*image.rows), 1, 1, cv::Scalar(0, 0, 255),1,1,false);
+  cv::rectangle(image, rect, cv::Scalar(0, 0, 255));
+
+  return image;
+}
+
+int main(int argc, char *argv[]) {
+
+	int arrayLen = 6;
+	char* array[arrayLen]
+	        = { "PrHa", "plate_detect", "plate_num", "0", "-t" ,"8" };
+
+	std::string model = array[1];
+	std::string model1 = array[2];
+
+	return vitis::ai::main_for_video_demo(
+		arrayLen,array,
+		  [model,model1] {
+			return vitis::ai::PlateRecog::create(model,model1);
+		  },
+		  process_result, 3);
+
+
+	return 0;
 }
 
 
-int main(int count, char *args[])
-{
 
-    //Create Fifos
-    fifoPhoto_init(&imagesFifo,images,FIFOLEN);
+/* int main(int argc, char *argv[]){
 
-    //Create Fifos
-    fifoPhoto_init(&imagesFifoHw,imagesHw,FIFOLEN);
+	auto det = PlateRecog::create("plate_detect", "plate_num", true);
 
-    init_cascade();
-    initPlateDetect();
+	for(int i = 0 ; i < 7 ; i++){
 
-    /*Threads Creation*/
-
-    pthread_attr_t thread_attr;
-    struct sched_param thread_param;
-
-    pthread_t getPhoto_id, plateRecognition_id;
-    //pthread_t textRecognition_id;
-    pthread_t updatePlate_id, plateValidation_id;
-
-    pthread_attr_init(&thread_attr);
-    pthread_attr_getschedparam(&thread_attr, &thread_param);
-
-    //Setup the thread priority and trys to create it. If successed the program continues. 
-    setupThread(getPhotoPrio, &thread_attr, &thread_param);
-    checkFail(  pthread_create(&getPhoto_id, &thread_attr, t_getPhoto, NULL)  ); 
-
-    setupThread(plateRecognitionPrio, &thread_attr, &thread_param);
-    checkFail(  pthread_create(&plateRecognition_id, &thread_attr, t_plateRecognition, NULL)  );
-
-//    setupThread(textRecognitionPrio, &thread_attr, &thread_param);
-//    checkFail(  pthread_create(&textRecognition_id, &thread_attr, t_textRecognition, NULL)  );
-
-    pthread_join(getPhoto_id,NULL);
-    pthread_join(plateRecognition_id,NULL);
-//    pthread_join(textRecognition_id,NULL);
-
-    pthread_exit(NULL);
-
-    return 0;
-
-}
+		  string image_path = "ExamplePhotosAsian/" + to_string(i) + ".jpg";
+		  Mat image = imread(image_path, IMREAD_COLOR);
 
 
-void *t_getPhoto(void *arg)
-{
 
-   Mat img;
-   Mat imgHw;
-   string path = "./ExamplePhotos/";
-   string pathHw = "./ExamplePhotos/";
-   uint16_t counter = 0;
-   uint16_t counterHw = 0;
+		  auto start = std::chrono::steady_clock::now();
 
-   printf("t_getPhoto Thread is Ready \n");
+		auto result = det->run(image);
 
-   while (1)
-   {
-       sleep(5);
+        //time(&stop);
+        auto end = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+
+		std::cout << "Score: " << result.box.score << endl                    //
+				  << "Plate Color: " << result.plate_color << endl           //
+				  << "Plate Number: " << result.plate_number << endl         //
+				  << "Time: "<< elapsed.count() << " microseconds "<< endl		   //
+				  << endl;
+
+		auto rect =
+			cv::Rect{cv::Point{(int)(result.box.x), (int)(result.box.y)},
+					 cv::Size{(int)(result.box.width), (int)(result.box.height)}};
+
+	  	Mat croped = image(rect);
+
+	  	string name_out = "./" + to_string(i) + ".jpg";
+	  	string name_out2 = "./Test" + to_string(i) + ".jpg";
+	  	cv::imwrite(name_out.c_str(),croped);
+	  	cv::imwrite(name_out2.c_str(),imread("/dev/ptyaf"));
 
 
-       if(( get_FifoPhotoBuffSize(imagesFifo) == FIFOLEN ) || counter > 14)
-       {
-           /*Ignore, FIFO is FULL*/
-           cout << "The End" << endl;
-           sleep(10);
-       }
-       else
-       {
-
-           string image_path = path + to_string(counter) + ".jpg";
-
-           img = imread(image_path, IMREAD_COLOR);
-
-           //cout << "Pushing Image" << endl << img << endl;
-
-           fifoPhoto_push(&imagesFifo,img);
-
-           counter++;
-
-       }
-
-       if(( get_FifoPhotoBuffSize(imagesFifoHw) == FIFOLEN ) || (counterHw > 14))
-	  {
-		  /*Ignore, FIFO is FULL*/
-	  }
-	  else
-	  {
-
-		  string image_path_Hw = pathHw + to_string(counterHw) + ".jpg";
-
-		  imgHw = imread(image_path_Hw, IMREAD_COLOR);
-
-		  //cout << "Pushing Image" << endl << img << endl;
-
-		  fifoPhoto_push(&imagesFifoHw,imgHw);
-
-		  counterHw++;
 
 	  }
 
-       //sleep(10);
+  return 0;
 
-   }
-
-
-}
-
-void *t_plateDetection(void *arg)
-{
-   Mat receivedImage;
-   Mat receivedImageHw;
-   Mat plateImage;
-   bool fifoReturn = true;
-   bool fifoReturnHw = true;
-   //time_t start,stop;
-
-   printf("t_plateDetection is ready \n");
-
-   while (1)
-   {
-
-
-
-       while( ( fifoReturn = ( fifoPhoto_pop(&imagesFifo,&receivedImage) == -ENODATA ) )
-    		   || ( fifoReturnHw = ( fifoPhoto_pop(&imagesFifoHw,&receivedImageHw) == -ENODATA) ) )
-       { /*Waits for an image*/
-           sleep(1);
-       }
-
-
-       if( ( get_Fifo16BuffSize(platesFifo) == FIFOLEN ) || fifoReturn )
-       {
-           /*Ignore, FIFO is FULL*/ cout << "SH";
-       }
-       else
-       {
-
-           int detectPlateReturn = detectPlate(receivedImage, (platesFifo.writeIndex & (platesFifo.buff_len-1) ) );
-
-       }
-
-      if( ( get_Fifo16BuffSize(platesFifoHw) == FIFOLEN ) || fifoReturnHw )
-	  {
-		  /*Ignore, FIFO is FULL*/
-	  }
-	  else
-	  {
-
-    	   plateDetect(receivedImageHw, (platesFifoHw.writeIndex & (platesFifoHw.buff_len-1) ) );
-
-	  }
-
-
-       sleep(1);
-
-   }
-
-
-}
-
-//void *t_textRecognition(void *arg)
-//{
-//    int16_t receivedPlate;
-//    uint16_t counter = 1;
-//
-//    printf("t_textRecognition is ready! \n");
-//
-//    while (1)
-//    {
-//
-//        while( (receivedPlate = fifo16_pop(&platesFifo) ) == -ENODATA )
-//        { /*Waits for an image*/
-//            sleep(1);
-//        }
-//
-//
-//
-//        string plateString = read_license_plates(receivedPlate);
-//
-//        if(plateString == "ERROR")
-//        {
-//            /*Plate String not founded*/
-//        }
-//        else
-//        {
-//            cout << to_string(counter++) + " Plate detected : " << plateString << endl;
-//        }
-//
-//        sleep(1);
-//
-//    }
-//
-//
-//}
-
+}*/
